@@ -1,0 +1,7 @@
+CIC_IMAGE="quay.io/citrix/citrix-k8s-ingress-controller:1.6.1"
+CPX_IMAGE="quay.io/citrix/citrix-k8s-cpx-ingress:13.0-47.102"
+#CIC_IMAGE="quay.io/citrix/citrix-k8s-ingress-controller:1.5.25"
+#CPX_IMAGE="quay.io/citrix/citrix-k8s-cpx-ingress:13.0-41.28"
+ADM_AGENT_IP="10.106.170.25"
+FINGERPRINT="2F:A3:F8:4D:F7:7F:49:C2:46:85:2E:5C:46:EA:64:B5:C8:ED:46:08"
+NAMESPACE="sg-demo"
