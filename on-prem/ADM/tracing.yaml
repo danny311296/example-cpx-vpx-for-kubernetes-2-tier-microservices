@@ -1,0 +1,419 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zipkin
+  labels:
+      name: zipkin
+spec:
+  selector:
+    matchLabels:
+      name: zipkin
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: zipkin
+    spec:
+      containers:
+      - name: zipkin
+        image:  openzipkin/zipkin:2.18.3
+        env:
+         - name: "STORAGE_TYPE"
+           value: "elasticsearch"
+         - name: "ES_HOSTS"
+           value: "http://elasticsearch:9200"
+        ports:
+        - name: zipkin-9411 
+          containerPort: 9411 
+        imagePullPolicy: Always
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: zipkin
+spec:
+  type: NodePort
+  ports:
+  - name: zipkin-9411
+    port: 9411
+  selector:
+    name: zipkin
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cpx-ingress-tracing
+spec:
+  selector:
+    matchLabels:
+      app: cpx-ingress-tracing
+  replicas: 1
+  template:
+    metadata:
+      name: cpx-ingress-tracing
+      labels:
+        app: cpx-ingress-tracing
+      annotations:
+    spec:
+      serviceAccountName: cpx-ingress-k8s-role
+      containers:
+        - name: cpx-ingress-tracing
+          image: "quay.io/citrix/citrix-k8s-cpx-ingress:13.0-47.22"
+          securityContext:
+             privileged: true
+          env:
+          - name: "EULA"
+            value: "yes"
+          - name: "KUBERNETES_TASK_ID"
+            value: ""
+          - name: "NS_MGMT_SERVER"
+            value: `ADM_AGENT_IP`
+          - name: "NS_MGMT_FINGERPRINT"
+            value: `FINGERPRINT`
+          - name: "NS_HTTP_PORT"
+            value: "9080"
+          - name: "NS_HTTPS_PORT"
+            value: "9443"
+          - name: "LOGSTREAM_COLLECTOR_IP"
+            value: `ADM_AGENT_IP`
+          imagePullPolicy: Always
+        # Add cic as a sidecar
+        - name: cic
+          image: "quay.io/citrix/citrix-k8s-ingress-controller:1.5.6"
+          env:
+          - name: "EULA"
+            value: "yes"
+          - name: "NS_IP"
+            value: "127.0.0.1"
+          - name: "NS_PROTOCOL"
+            value: "HTTP"
+          - name: "NS_PORT"
+            value: "80"
+          - name: "NS_DEPLOYMENT_MODE"
+            value: "SIDECAR"
+          - name: "NS_ENABLE_MONITORING"
+            value: "YES"
+          - name: "NS_DISTRIBUTED_TRACING"
+            value: "yes"
+          - name: "NS_LOGPROXY"
+            value: `ADM_AGENT_IP`
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          args:
+            - --ingress-classes
+              watches-ingress
+          imagePullPolicy: Always
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: cpx-ingress-tracing
+  labels:
+    app: cpx-ingress-tracing
+spec:
+  type: NodePort
+  ports:
+  - port: 80
+    protocol: TCP
+    name: http
+  - port: 443
+    protocol: TCP
+    name: https
+  selector:
+    app: cpx-ingress-tracing
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: amazon 
+  labels:
+      name: amazon
+spec:
+  selector:
+    matchLabels:
+      name: amazon
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: amazon
+    spec:
+      containers:
+      - name: amazon
+        image: "quay.io/citrix-duke/watch-store:v23"
+        env:
+         - name: "ZIPKIN_SERVER"
+           value: "zipkin.`NAMESPACE`.svc.cluster.local"
+         - name: "ZIPKIN_PORT"
+           value: "9411"
+         - name: "CS_PROXY"
+           value: "cpx-ingress-tracing.`NAMESPACE`.svc.cluster.local"
+         - name: "CS_PORT"
+           value: "80"
+         - name: "DEBUG"
+           value: "1"
+        ports:
+        - name: amazon-1719
+          containerPort: 1719
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fasttrack
+  labels:
+      name: fasttrack
+spec:
+  selector:
+    matchLabels:
+      name: fasttrack
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: fasttrack
+    spec:
+      containers:
+      - name: fasttrack
+        image: "quay.io/citrix-duke/watch-brand-1:v8"
+        env:
+         - name: "ZIPKIN_SERVER"
+           value: "zipkin.`NAMESPACE`.svc.cluster.local"
+         - name: "ZIPKIN_PORT"
+           value: "9411"
+         - name: 'CS_PROXY'
+           value: "cpx-ingress-tracing.`NAMESPACE`.svc.cluster.local"
+         - name: 'CS_PORT'
+           value: "80"
+        ports:
+        - name: fasttrack-1720
+          containerPort: 1720
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: titan
+  labels:
+      name: titan
+spec:
+  selector:
+    matchLabels:
+      name: titan
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: titan
+    spec:
+      containers:
+      - name: titan
+        image: "quay.io/citrix-duke/watch-brand-2:v8"
+        env:
+         - name: "ZIPKIN_SERVER"
+           value: "zipkin.`NAMESPACE`.svc.cluster.local"
+         - name: "ZIPKIN_PORT"
+           value: "9411"
+         - name: 'CS_PROXY'
+           value: "cpx-ingress-tracing.`NAMESPACE`.svc.cluster.local"
+         - name: 'CS_PORT'
+           value: "80"
+        ports:
+        - name: titan-1721
+          containerPort: 1721
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: casio 
+  labels:
+      name: casio
+spec:
+  selector:
+    matchLabels:
+      name: casio
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: casio
+    spec:
+      containers:
+      - name: casio
+        image: "quay.io/citrix-duke/watch-brand-3:v8"
+        env:
+         - name: "ZIPKIN_SERVER"
+           value: "zipkin.`NAMESPACE`.svc.cluster.local"
+         - name: "ZIPKIN_PORT"
+           value: "9411"
+         - name: 'CS_PROXY'
+           value: "cpx-ingress-tracing.`NAMESPACE`.svc.cluster.local"
+         - name: 'CS_PORT'
+           value: "80"
+        ports:
+        - name: casio-1722
+          containerPort: 1722
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sonata 
+  labels:
+      name: sonata
+spec:
+  selector:
+    matchLabels:
+      name: sonata
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: sonata
+    spec:
+      containers:
+        - name: sonata
+          image: "quay.io/citrix-duke/watch-brand-3:sonatav9"
+          imagePullPolicy: Always
+          env:
+            - name: "ZIPKIN_SERVER"
+              value: "zipkin.`NAMESPACE`.svc.cluster.local"
+            - name: "ZIPKIN_PORT"
+              value: "9411"
+            - name: 'CS_PROXY'
+              value: 'cpx-ingress-tracing.`NAMESPACE`.svc.cluster.local'
+            - name: 'CS_PORT'
+              value: "80"
+          ports:
+            - name: sonata-1723
+              containerPort: 1723
+
+---
+
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: watches-ingress
+  annotations:
+   ingress.citrix.com/insecure-termination: "allow"
+   kubernetes.io/ingress.class: "watches-ingress"
+   ingress.citrix.com/analyticsprofile: '{"webinsight": {"httpurl":"ENABLED", "httpuseragent":"ENABLED", "httphost":"ENABLED", "httpmethod":"ENABLED", "httpcontenttype":"ENABLED"}, "tcpinsight": {"tcpBurstReporting":"DISABLED"}}'
+spec:
+      tls:
+       - secretName: hotdrink-secret
+      rules:
+       - host: cpx-ingress-tracing.`NAMESPACE`.svc.cluster.local
+         http:
+          paths:
+          - path: /serial/view/watches
+            backend:
+              serviceName: amazon 
+              servicePort: 1719
+       - host: cpx-ingress-tracing.`NAMESPACE`.svc.cluster.local
+         http:
+          paths:
+          - path: /fasttrack/get
+            backend:
+              serviceName: fasttrack
+              servicePort: 1720
+       - host: cpx-ingress-tracing.`NAMESPACE`.svc.cluster.local
+         http:
+          paths:
+          - path: /titan/get
+            backend:
+              serviceName: titan
+              servicePort: 1721
+       - host: cpx-ingress-tracing.`NAMESPACE`.svc.cluster.local
+         http:
+          paths:
+          - path: /casio/get
+            backend:
+              serviceName: casio
+              servicePort: 1722
+       - host: cpx-ingress-tracing.`NAMESPACE`.svc.cluster.local
+         http:
+          paths:
+          - path: /sonata/get
+            backend:
+              serviceName: sonata
+              servicePort: 1723
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: amazon
+spec:
+  clusterIP: None
+  ports:
+  - name: amazon-1719
+    port: 1719
+  selector:
+    name: amazon
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: fasttrack
+spec:
+  clusterIP: None
+  ports:
+  - name: fasttrack-1720
+    port: 1720
+  selector:
+    name: fasttrack
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: titan
+spec:
+  clusterIP: None 
+  ports:
+  - name: titan-1721
+    port: 1721
+  selector:
+    name: titan
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: casio
+spec:
+  clusterIP: None
+  ports:
+  - name: casio-1722
+    port: 1722
+  selector:
+    name: casio
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: sonata
+spec:
+  clusterIP: None
+  ports:
+  - name: sonata-1723
+    port: 1723
+  selector:
+    name: sonata
+---

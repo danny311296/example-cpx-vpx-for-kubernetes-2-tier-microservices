@@ -11,4 +11,5 @@ kubectl create -f .temp/team_hotdrink.yaml -n $NAMESPACE
 kubectl create -f .temp/hotdrink-secret.yaml -n $NAMESPACE
 kubectl create -f .temp/rbac.yaml
 kubectl create -f .temp/cpx.yaml -n $NAMESPACE
-kubectl create -f team-guestbook.yaml -n $NAMESPACE
+kubectl create -f .temp/team-guestbook.yaml -n $NAMESPACE
+kubectl create -f .temp/tracing.yaml -n $NAMESPACE
