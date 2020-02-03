@@ -98,6 +98,9 @@ kind: Deployment
 metadata:
   name: cpx-ingress-guestbook
 spec:
+  selector:
+    matchLabels:
+      app: cpx-ingress-guestbook
   replicas: 1
   template:
     metadata:
