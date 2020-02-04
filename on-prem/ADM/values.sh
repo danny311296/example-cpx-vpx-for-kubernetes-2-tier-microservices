@@ -1,5 +1,5 @@
 CIC_IMAGE="quay.io/citrix/citrix-k8s-ingress-controller:1.6.1"
-CPX_IMAGE="quay.io/citrix/citrix-k8s-cpx-ingress:13.0-47.102"
+CPX_IMAGE="quay.io/citrix/citrix-k8s-cpx-ingress:13.0-47.103"
 #CIC_IMAGE="quay.io/citrix/citrix-k8s-ingress-controller:1.5.25"
 #CPX_IMAGE="quay.io/citrix/citrix-k8s-cpx-ingress:13.0-41.28"
 ADM_AGENT_IP="10.106.170.25"

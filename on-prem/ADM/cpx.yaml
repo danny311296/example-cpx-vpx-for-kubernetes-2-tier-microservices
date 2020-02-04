@@ -113,7 +113,7 @@ spec:
       serviceAccountName: cpx-ingress-k8s-role
       containers:
         - name: cpx-ingress-guestbook
-          image: "quay.io/citrix/citrix-k8s-cpx-ingress:13.0-36.28"
+          image: `CPX_IMAGE`
           securityContext: 
              privileged: true
           env:
@@ -134,7 +134,7 @@ spec:
           imagePullPolicy: Always
         # Add cic as a sidecar
         - name: cic
-          image: "quay.io/citrix/citrix-k8s-ingress-controller:1.2.0"
+          image: `CIC_IMAGE`
           env:
           - name: "EULA"
             value: "yes"
